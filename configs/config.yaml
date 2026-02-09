@@ -1,0 +1,49 @@
+# Configuración del experimento Flow Distillation
+
+# Datos
+data:
+  image_size: 64
+  num_mock_images: 100
+  data_dir: "data/mock_images"
+
+# Modelo
+model:
+  channels: 64
+  channel_mult: [1, 2, 4]
+  num_res_blocks: 2
+  attention_resolutions: [16, 8]
+  dropout: 0.1
+
+# Entrenamiento Base
+training_base:
+  epochs: 50
+  batch_size: 16
+  learning_rate: 0.0001
+  num_timesteps: 1000
+  save_every: 10
+
+# Entrenamiento Rectified (Reflow)
+training_rectified:
+  epochs: 30
+  batch_size: 16
+  learning_rate: 0.0001
+  num_reflow_iterations: 2  # Número de veces que aplicamos reflow
+  save_every: 10
+
+# Benchmark
+benchmark:
+  num_samples: 50
+  steps_to_test: [1, 2, 4, 8, 16, 32, 64, 100]
+  num_runs: 5  # Para promediar tiempos
+
+# Métricas
+metrics:
+  compute_fid: true
+  compute_lpips: true
+  compute_ssim: true
+
+# Paths
+paths:
+  checkpoints: "checkpoints"
+  results: "results"
+  figures: "results/figures"
