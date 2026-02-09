@@ -1,5 +1,5 @@
 """
-Script para entrenar el modelo Flow base.
+Script to train the base Flow model.
 """
 
 import torch
@@ -11,20 +11,20 @@ import sys
 import yaml
 from pathlib import Path
 
-# Añadir el directorio raíz al path
+# Add root directory to path
 sys.path.append(str(Path(__file__).parent.parent))
 
 from models import BaseFlowModel, train_base_flow
 
 
 class ImageDataset(Dataset):
-    """Dataset simple para cargar imágenes desde un directorio."""
+    """Simple dataset to load images from a directory."""
     
     def __init__(self, image_dir: str, image_size: int = 64):
         self.image_dir = image_dir
         self.image_size = image_size
         
-        # Listar todas las imágenes
+        # List all images
         self.image_paths = []
         for ext in ['*.png', '*.jpg', '*.jpeg']:
             self.image_paths.extend(list(Path(image_dir).glob(ext)))
@@ -35,7 +35,7 @@ class ImageDataset(Dataset):
             transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])  # [-1, 1]
         ])
         
-        print(f"Dataset cargado: {len(self.image_paths)} imágenes")
+        print(f"Dataset loaded: {len(self.image_paths)} images")
     
     def __len__(self):
         return len(self.image_paths)
@@ -47,30 +47,30 @@ class ImageDataset(Dataset):
 
 
 def load_config():
-    """Carga la configuración."""
+    """Load configuration."""
     config_path = Path(__file__).parent.parent / 'configs' / 'config.yaml'
     with open(config_path, 'r') as f:
         return yaml.safe_load(f)
 
 
 def main():
-    # Cargar configuración
+    # Load configuration
     config = load_config()
     
-    # Configurar dispositivo
+    # Configure device
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    print(f"Usando dispositivo: {device}")
+    print(f"Using device: {device}")
     
-    # Crear directorios
+    # Create directories
     checkpoint_dir = Path(__file__).parent.parent / config['paths']['checkpoints']
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
     
-    # Cargar datos
+    # Load data
     data_dir = Path(__file__).parent.parent / config['data']['data_dir']
     
     if not data_dir.exists() or len(list(data_dir.glob('*'))) == 0:
-        print("No se encontraron datos. Ejecuta primero: python -m utils.download_data")
-        print("Generando datos sintéticos para demo...")
+        print("No data found. Run first: python -m utils.download_data")
+        print("Generating synthetic data for demo...")
         from utils.download_data import download_data
         download_data(use_online=False)
     
@@ -83,7 +83,7 @@ def main():
         pin_memory=True if device == 'cuda' else False
     )
     
-    # Crear modelo
+    # Create model
     model = BaseFlowModel(
         image_size=config['data']['image_size'],
         model_channels=config['model']['channels'],
@@ -94,11 +94,11 @@ def main():
         device=device
     )
     
-    print(f"Modelo creado con {sum(p.numel() for p in model.parameters()):,} parámetros")
+    print(f"Model created with {sum(p.numel() for p in model.parameters()):,} parameters")
     
-    # Entrenar
+    # Train
     print("\n" + "="*60)
-    print("ENTRENANDO MODELO BASE")
+    print("TRAINING BASE MODEL")
     print("="*60)
     
     losses = train_base_flow(
@@ -110,17 +110,17 @@ def main():
         save_every=config['training_base']['save_every']
     )
     
-    # Guardar losses
+    # Save losses
     import numpy as np
     np.save(str(checkpoint_dir / 'base_flow_losses.npy'), losses)
     
-    print("\nEntrenamiento completado!")
-    print(f"Modelo guardado en: {checkpoint_dir / 'base_flow_final.pt'}")
+    print("\nTraining completed!")
+    print(f"Model saved to: {checkpoint_dir / 'base_flow_final.pt'}")
     
-    # Test rápido de generación
-    print("\nGenerando muestras de prueba...")
+    # Quick generation test
+    print("\nGenerating test samples...")
     samples = model.sample(batch_size=4, num_steps=50)
-    print(f"Muestras generadas: {samples.shape}")
+    print(f"Generated samples: {samples.shape}")
 
 
 if __name__ == "__main__":

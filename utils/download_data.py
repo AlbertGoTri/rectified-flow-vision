@@ -1,6 +1,6 @@
 """
-Script para descargar imágenes de prueba (mock data).
-Usa imágenes de datasets públicos accesibles.
+Script to download test images (mock data).
+Uses images from accessible public datasets.
 """
 
 import os
@@ -13,7 +13,7 @@ import yaml
 
 
 def load_config():
-    """Carga la configuración del proyecto."""
+    """Load project configuration."""
     config_path = os.path.join(os.path.dirname(__file__), '..', 'configs', 'config.yaml')
     with open(config_path, 'r') as f:
         return yaml.safe_load(f)
@@ -21,17 +21,17 @@ def load_config():
 
 def download_picsum_images(save_dir: str, num_images: int = 100, size: int = 64):
     """
-    Descarga imágenes aleatorias de Lorem Picsum (servicio gratuito).
+    Downloads random images from Lorem Picsum (free service).
     https://picsum.photos/
     """
     os.makedirs(save_dir, exist_ok=True)
     
-    print(f"Descargando {num_images} imágenes de Lorem Picsum...")
+    print(f"Downloading {num_images} images from Lorem Picsum...")
     
     successful = 0
-    for i in tqdm(range(num_images), desc="Descargando"):
+    for i in tqdm(range(num_images), desc="Downloading"):
         try:
-            # Lorem Picsum proporciona imágenes aleatorias
+            # Lorem Picsum provides random images
             url = f"https://picsum.photos/{size}/{size}"
             response = requests.get(url, timeout=10)
             
@@ -41,31 +41,31 @@ def download_picsum_images(save_dir: str, num_images: int = 100, size: int = 64)
                 img.save(os.path.join(save_dir, f"image_{i:04d}.png"))
                 successful += 1
         except Exception as e:
-            print(f"Error descargando imagen {i}: {e}")
+            print(f"Error downloading image {i}: {e}")
             continue
     
-    print(f"Descargadas {successful}/{num_images} imágenes exitosamente")
+    print(f"Downloaded {successful}/{num_images} images successfully")
     return successful
 
 
 def generate_synthetic_images(save_dir: str, num_images: int = 100, size: int = 64):
     """
-    Genera imágenes sintéticas si no hay conexión a internet.
-    Crea patrones geométricos simples pero variados.
+    Generates synthetic images if there is no internet connection.
+    Creates simple but varied geometric patterns.
     """
     os.makedirs(save_dir, exist_ok=True)
     
-    print(f"Generando {num_images} imágenes sintéticas...")
+    print(f"Generating {num_images} synthetic images..."))
     
-    for i in tqdm(range(num_images), desc="Generando"):
-        # Crear imagen con patrón aleatorio
+    for i in tqdm(range(num_images), desc="Generating"):
+        # Create image with random pattern
         img_array = np.zeros((size, size, 3), dtype=np.uint8)
         
-        # Color de fondo aleatorio
+        # Random background color
         bg_color = np.random.randint(0, 256, 3)
         img_array[:, :] = bg_color
         
-        # Añadir formas aleatorias
+        # Add random shapes
         num_shapes = np.random.randint(3, 8)
         for _ in range(num_shapes):
             shape_type = np.random.choice(['circle', 'rectangle', 'gradient'])
@@ -97,16 +97,16 @@ def generate_synthetic_images(save_dir: str, num_images: int = 100, size: int = 
         img = Image.fromarray(img_array)
         img.save(os.path.join(save_dir, f"image_{i:04d}.png"))
     
-    print(f"Generadas {num_images} imágenes sintéticas")
+    print(f"Generated {num_images} synthetic images")
     return num_images
 
 
 def download_data(use_online: bool = True):
     """
-    Función principal para descargar/generar datos.
+    Main function to download/generate data.
     
     Args:
-        use_online: Si True, intenta descargar de internet. Si False, genera sintéticas.
+        use_online: If True, tries to download from internet. If False, generates synthetic.
     """
     config = load_config()
     
@@ -119,27 +119,27 @@ def download_data(use_online: bool = True):
     
     if use_online:
         try:
-            # Intentar descargar de internet
+            # Try to download from internet
             downloaded = download_picsum_images(save_dir, num_images, size)
             if downloaded < num_images // 2:
-                print("Pocas imágenes descargadas, complementando con sintéticas...")
+                print("Few images downloaded, complementing with synthetic...")
                 generate_synthetic_images(save_dir, num_images - downloaded, size)
         except Exception as e:
-            print(f"Error con descarga online: {e}")
-            print("Generando imágenes sintéticas como alternativa...")
+            print(f"Error with online download: {e}")
+            print("Generating synthetic images as alternative...")
             generate_synthetic_images(save_dir, num_images, size)
     else:
         generate_synthetic_images(save_dir, num_images, size)
     
-    print(f"\nDatos guardados en: {save_dir}")
-    print(f"Total imágenes: {len(os.listdir(save_dir))}")
+    print(f"\nData saved in: {save_dir}")
+    print(f"Total images: {len(os.listdir(save_dir))}")
 
 
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('--offline', action='store_true', 
-                        help='Generar imágenes sintéticas sin conexión')
+                        help='Generate synthetic images without connection')
     args = parser.parse_args()
     
     download_data(use_online=not args.offline)

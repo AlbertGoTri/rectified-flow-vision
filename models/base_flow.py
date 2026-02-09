@@ -1,10 +1,10 @@
 """
-Implementación del Flow Model base usando Flow Matching.
+Base Flow Model implementation using Flow Matching.
 
-Flow Matching entrena un modelo para predecir el campo de velocidad
-que transforma una distribución de ruido en la distribución de datos.
+Flow Matching trains a model to predict the velocity field
+that transforms a noise distribution into the data distribution.
 
-Referencias:
+References:
 - Flow Matching for Generative Modeling (Lipman et al., 2022)
 - Building Normalizing Flows with Stochastic Interpolants (Albergo & Vanden-Eijnden, 2022)
 """
@@ -23,15 +23,15 @@ from .unet import UNet
 
 class BaseFlowModel(nn.Module):
     """
-    Flow Model base implementando Flow Matching con interpolación lineal.
+    Base Flow Model implementing Flow Matching with linear interpolation.
     
-    La idea es aprender un campo de velocidad v(x_t, t) tal que:
+    The idea is to learn a velocity field v(x_t, t) such that:
     dx_t/dt = v(x_t, t)
     
-    donde x_0 ~ N(0, I) (ruido) y x_1 ~ p_data (datos).
+    where x_0 ~ N(0, I) (noise) and x_1 ~ p_data (data).
     
-    Con interpolación lineal: x_t = (1-t)*x_0 + t*x_1
-    El target es: v = x_1 - x_0
+    With linear interpolation: x_t = (1-t)*x_0 + t*x_1
+    The target is: v = x_1 - x_0
     """
     
     def __init__(
@@ -51,7 +51,7 @@ class BaseFlowModel(nn.Module):
         self.in_channels = in_channels
         self.device = device
         
-        # Red neuronal que predice el campo de velocidad
+        # Neural network that predicts the velocity field
         self.velocity_net = UNet(
             in_channels=in_channels,
             model_channels=model_channels,
@@ -67,62 +67,62 @@ class BaseFlowModel(nn.Module):
     def get_interpolation(self, x0: torch.Tensor, x1: torch.Tensor, 
                           t: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """
-        Calcula la interpolación lineal y el campo de velocidad target.
+        Computes linear interpolation and target velocity field.
         
         Args:
-            x0: Ruido [B, C, H, W]
-            x1: Datos [B, C, H, W]
-            t: Tiempo [B]
+            x0: Noise [B, C, H, W]
+            x1: Data [B, C, H, W]
+            t: Time [B]
         
         Returns:
-            x_t: Estado interpolado [B, C, H, W]
-            target: Campo de velocidad target [B, C, H, W]
+            x_t: Interpolated state [B, C, H, W]
+            target: Target velocity field [B, C, H, W]
         """
         t = t.view(-1, 1, 1, 1)
         
-        # Interpolación lineal: x_t = (1-t)*x_0 + t*x_1
+        # Linear interpolation: x_t = (1-t)*x_0 + t*x_1
         x_t = (1 - t) * x0 + t * x1
         
-        # El campo de velocidad óptimo es: v = x_1 - x_0
+        # Optimal velocity field is: v = x_1 - x_0
         target = x1 - x0
         
         return x_t, target
     
     def forward(self, x: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
         """
-        Predice el campo de velocidad.
+        Predicts the velocity field.
         
         Args:
-            x: Estado actual [B, C, H, W]
-            t: Tiempo [B]
+            x: Current state [B, C, H, W]
+            t: Time [B]
         
         Returns:
-            Velocidad predicha [B, C, H, W]
+            Predicted velocity [B, C, H, W]
         """
         return self.velocity_net(x, t)
     
     def compute_loss(self, x1: torch.Tensor) -> torch.Tensor:
         """
-        Calcula la pérdida de entrenamiento (MSE entre velocidad predicha y target).
+        Computes training loss (MSE between predicted and target velocity).
         
         Args:
-            x1: Batch de datos reales [B, C, H, W]
+            x1: Batch of real data [B, C, H, W]
         
         Returns:
-            Loss escalar
+            Scalar loss
         """
         batch_size = x1.shape[0]
         
-        # Muestrear ruido
+        # Sample noise
         x0 = torch.randn_like(x1)
         
-        # Muestrear tiempo uniformemente
+        # Sample time uniformly
         t = torch.rand(batch_size, device=x1.device)
         
-        # Obtener interpolación y target
+        # Get interpolation and target
         x_t, target = self.get_interpolation(x0, x1, t)
         
-        # Predecir velocidad
+        # Predict velocity
         pred = self.forward(x_t, t)
         
         # MSE loss
@@ -136,16 +136,16 @@ class BaseFlowModel(nn.Module):
                batch_size: int = 1,
                return_trajectory: bool = False) -> torch.Tensor:
         """
-        Genera muestras usando integración de Euler.
+        Generates samples using Euler integration.
         
         Args:
-            noise: Ruido inicial [B, C, H, W] o None para generarlo
-            num_steps: Número de pasos de integración
-            batch_size: Tamaño del batch si noise es None
-            return_trajectory: Si True, retorna todos los estados intermedios
+            noise: Initial noise [B, C, H, W] or None to generate it
+            num_steps: Number of integration steps
+            batch_size: Batch size if noise is None
+            return_trajectory: If True, returns all intermediate states
         
         Returns:
-            Muestras generadas [B, C, H, W] o lista de estados si return_trajectory
+            Generated samples [B, C, H, W] or list of states if return_trajectory
         """
         self.eval()
         
@@ -159,14 +159,14 @@ class BaseFlowModel(nn.Module):
         
         trajectory = [x] if return_trajectory else None
         
-        # Integración de Euler
+        # Euler integration
         for i in range(num_steps):
             t = torch.ones(x.shape[0], device=self.device) * (i * dt)
             
-            # Predecir velocidad
+            # Predict velocity
             v = self.forward(x, t)
             
-            # Paso de Euler
+            # Euler step
             x = x + v * dt
             
             if return_trajectory:
@@ -181,15 +181,15 @@ class BaseFlowModel(nn.Module):
                                 num_steps: int = 100,
                                 save_every: int = 10) -> List[torch.Tensor]:
         """
-        Genera muestras guardando la trayectoria cada N pasos.
+        Generates samples while saving the trajectory every N steps.
         
         Args:
-            noise: Ruido inicial
-            num_steps: Número total de pasos
-            save_every: Guardar cada N pasos
+            noise: Initial noise
+            num_steps: Total number of steps
+            save_every: Save every N steps
         
         Returns:
-            Lista de estados en la trayectoria
+            List of states in the trajectory
         """
         self.eval()
         

@@ -1,17 +1,17 @@
 """
-Script principal para ejecutar el pipeline completo de Flow Distillation.
+Main script to run the complete Flow Distillation pipeline.
 
-Este script:
-1. Descarga/genera datos de prueba
-2. Entrena el modelo flow base
-3. Entrena el modelo rectificado (Reflow)
-4. Ejecuta benchmark comparativo
-5. Genera visualizaciones y reporte
+This script:
+1. Downloads/generates test data
+2. Trains the base flow model
+3. Trains the rectified model (Reflow)
+4. Runs comparative benchmark
+5. Generates visualizations and report
 
-Uso:
-    python main.py                    # Pipeline completo
-    python main.py --skip-training    # Solo benchmark (requiere modelos pre-entrenados)
-    python main.py --quick            # Entrenamiento rápido para demo
+Usage:
+    python main.py                    # Full pipeline
+    python main.py --skip-training    # Benchmark only (requires pre-trained models)
+    python main.py --quick            # Quick training for demo
 """
 
 import argparse
@@ -21,19 +21,19 @@ from pathlib import Path
 import yaml
 import torch
 
-# Añadir el directorio actual al path
+# Add current directory to path
 sys.path.insert(0, str(Path(__file__).parent))
 
 
 def load_config():
-    """Carga la configuración."""
+    """Load configuration."""
     config_path = Path(__file__).parent / 'configs' / 'config.yaml'
     with open(config_path, 'r') as f:
         return yaml.safe_load(f)
 
 
 def update_config_for_quick_mode(config):
-    """Modifica la configuración para modo rápido/demo."""
+    """Modify configuration for quick/demo mode."""
     config['data']['num_mock_images'] = 50
     config['training_base']['epochs'] = 5
     config['training_base']['batch_size'] = 8
@@ -46,7 +46,7 @@ def update_config_for_quick_mode(config):
 
 
 def save_config(config, path):
-    """Guarda la configuración modificada."""
+    """Save modified configuration."""
     with open(path, 'w') as f:
         yaml.dump(config, f, default_flow_style=False)
 
@@ -54,13 +54,13 @@ def save_config(config, path):
 def main():
     parser = argparse.ArgumentParser(description='Flow Distillation - Pipeline Completo')
     parser.add_argument('--skip-training', action='store_true',
-                        help='Saltar entrenamiento y solo hacer benchmark')
+                        help='Skip training and only run benchmark')
     parser.add_argument('--skip-download', action='store_true',
-                        help='Saltar descarga de datos')
+                        help='Skip data download')
     parser.add_argument('--quick', action='store_true',
-                        help='Modo rápido con menos epochs para demo')
+                        help='Quick mode with fewer epochs for demo')
     parser.add_argument('--offline', action='store_true',
-                        help='Usar datos sintéticos sin conexión a internet')
+                        help='Use synthetic data without internet connection')
     args = parser.parse_args()
     
     # Banner
@@ -69,30 +69,30 @@ def main():
     print("="*60)
     print()
     
-    # Configuración
+    # Configuration
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    print(f"Dispositivo: {device}")
+    print(f"Device: {device}")
     if device == 'cuda':
         print(f"GPU: {torch.cuda.get_device_name(0)}")
-        print(f"Memoria GPU: {torch.cuda.get_device_properties(0).total_memory / 1e9:.1f} GB")
+        print(f"GPU Memory: {torch.cuda.get_device_properties(0).total_memory / 1e9:.1f} GB")
     print()
     
-    # Cargar y posiblemente modificar configuración
+    # Load and possibly modify configuration
     config = load_config()
     
     if args.quick:
-        print("⚡ MODO RÁPIDO activado - Configuración reducida para demo\n")
+        print("⚡ QUICK MODE activated - Reduced configuration for demo\n")
         config = update_config_for_quick_mode(config)
-        # Guardar config temporal
+        # Save temporary config
         temp_config_path = Path(__file__).parent / 'configs' / 'config_quick.yaml'
         save_config(config, temp_config_path)
     
     # ========================================
-    # PASO 1: DESCARGAR/GENERAR DATOS
+    # STEP 1: DOWNLOAD/GENERATE DATA
     # ========================================
     if not args.skip_download:
         print("="*60)
-        print("PASO 1: Preparando datos de prueba")
+        print("STEP 1: Preparing test data")
         print("="*60)
         
         from utils.download_data import download_data
@@ -100,11 +100,11 @@ def main():
         print()
     
     # ========================================
-    # PASO 2: ENTRENAR MODELO BASE
+    # STEP 2: TRAIN BASE MODEL
     # ========================================
     if not args.skip_training:
         print("="*60)
-        print("PASO 2: Entrenando modelo Flow base")
+        print("STEP 2: Training base Flow model")
         print("="*60)
         
         from experiments.train_base import main as train_base_main
@@ -112,10 +112,10 @@ def main():
         print()
         
         # ========================================
-        # PASO 3: ENTRENAR MODELO RECTIFICADO
+        # STEP 3: TRAIN RECTIFIED MODEL
         # ========================================
         print("="*60)
-        print("PASO 3: Entrenando modelo Flow rectificado (Reflow)")
+        print("STEP 3: Training rectified Flow model (Reflow)")
         print("="*60)
         
         from experiments.train_rectified import main as train_rect_main
@@ -123,48 +123,48 @@ def main():
         print()
     
     # ========================================
-    # PASO 4: BENCHMARK COMPARATIVO
+    # STEP 4: COMPARATIVE BENCHMARK
     # ========================================
     print("="*60)
-    print("PASO 4: Ejecutando benchmark comparativo")
+    print("STEP 4: Running comparative benchmark")
     print("="*60)
     
     from experiments.benchmark import main as benchmark_main
     benchmark_main()
     
     # ========================================
-    # RESUMEN FINAL
+    # FINAL SUMMARY
     # ========================================
     print("\n" + "="*60)
-    print("   PIPELINE COMPLETADO")
+    print("   PIPELINE COMPLETED")
     print("="*60)
     
     results_dir = Path(__file__).parent / config['paths']['results']
     checkpoint_dir = Path(__file__).parent / config['paths']['checkpoints']
     
     print(f"""
-Archivos generados:
+Generated files:
 
 📁 Checkpoints:
    {checkpoint_dir}/
-   ├── base_flow_final.pt          (Modelo base)
-   └── rectified_flow_k1_final.pt  (Modelo rectificado)
+   ├── base_flow_final.pt          (Base model)
+   └── rectified_flow_k1_final.pt  (Rectified model)
 
-📁 Resultados:
+📁 Results:
    {results_dir}/
-   ├── benchmark_results.csv       (Datos numéricos)
-   ├── speed_comparison.png        (Gráfica de velocidad)
-   ├── benchmark_report.txt        (Reporte de texto)
-   └── *_samples_*.png             (Muestras generadas)
+   ├── benchmark_results.csv       (Numerical data)
+   ├── speed_comparison.png        (Speed comparison plot)
+   ├── benchmark_report.txt        (Text report)
+   └── *_samples_*.png             (Generated samples)
 
-📖 Próximos pasos:
-   1. Revisa las imágenes en results/ para comparar calidad visual
-   2. Consulta benchmark_results.csv para análisis detallado
-   3. Ajusta configs/config.yaml para experimentos más largos
-   4. Prueba con tus propios datos en data/mock_images/
+📖 Next steps:
+   1. Review images in results/ to compare visual quality
+   2. Check benchmark_results.csv for detailed analysis
+   3. Adjust configs/config.yaml for longer experiments
+   4. Try with your own data in data/mock_images/
 """)
     
-    print("¡Experimento completado exitosamente!")
+    print("Experiment completed successfully!")
 
 
 if __name__ == "__main__":

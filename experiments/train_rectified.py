@@ -1,5 +1,5 @@
 """
-Script para entrenar el modelo Flow rectificado (Reflow).
+Script to train the rectified Flow model (Reflow).
 """
 
 import torch
@@ -8,7 +8,7 @@ from pathlib import Path
 import sys
 import yaml
 
-# Añadir el directorio raíz al path
+# Add root directory to path
 sys.path.append(str(Path(__file__).parent.parent))
 
 from models import (
@@ -22,24 +22,24 @@ from experiments.train_base import ImageDataset, load_config
 
 
 def main():
-    # Cargar configuración
+    # Load configuration
     config = load_config()
     
-    # Configurar dispositivo
+    # Configure device
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    print(f"Usando dispositivo: {device}")
+    print(f"Using device: {device}")
     
-    # Crear directorios
+    # Create directories
     checkpoint_dir = Path(__file__).parent.parent / config['paths']['checkpoints']
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
     
-    # Cargar modelo base entrenado
+    # Load trained base model
     base_model_path = checkpoint_dir / 'base_flow_final.pt'
     
     if not base_model_path.exists():
-        print("No se encontró el modelo base entrenado.")
-        print("Ejecuta primero: python -m experiments.train_base")
-        print("\nCreando modelo base sin entrenar para demo...")
+        print("Trained base model not found.")
+        print("Run first: python -m experiments.train_base")
+        print("\nCreating untrained base model for demo...")
         
         base_model = BaseFlowModel(
             image_size=config['data']['image_size'],
@@ -51,7 +51,7 @@ def main():
             device=device
         )
     else:
-        print(f"Cargando modelo base desde: {base_model_path}")
+        print(f"Loading base model from: {base_model_path}")
         base_model = BaseFlowModel(
             image_size=config['data']['image_size'],
             model_channels=config['model']['channels'],
@@ -63,23 +63,23 @@ def main():
         )
         base_model.load(str(base_model_path))
     
-    # Opción 1: Single Reflow
+    # Option 1: Single Reflow
     print("\n" + "="*60)
-    print("ENTRENANDO MODELO RECTIFICADO (Single Reflow)")
+    print("TRAINING RECTIFIED MODEL (Single Reflow)")
     print("="*60)
     
-    # Crear modelo rectificado
+    # Create rectified model
     rect_model = RectifiedFlowModel.from_base_model(base_model)
     
-    # Generar pares usando el modelo base
-    num_pairs = min(1000, config['data']['num_mock_images'] * 10)  # Ajustar según datos
+    # Generate pairs using base model
+    num_pairs = min(1000, config['data']['num_mock_images'] * 10)  # Adjust according to data
     x0_data, x1_data = generate_reflow_pairs(
         base_model,
         num_pairs=num_pairs,
         num_steps=config['training_base']['num_timesteps'] // 10  # Menos pasos para velocidad
     )
     
-    # Entrenar modelo rectificado
+    # Train rectified model
     losses = train_rectified_flow(
         model=rect_model,
         x0_data=x0_data,
@@ -91,19 +91,19 @@ def main():
         save_every=config['training_rectified']['save_every']
     )
     
-    # Guardar losses
+    # Save losses
     import numpy as np
     np.save(str(checkpoint_dir / 'rectified_flow_k1_losses.npy'), losses)
     
-    # Opción 2: Iterative Reflow (si se configura)
+    # Option 2: Iterative Reflow (if configured)
     num_reflow_iters = config['training_rectified']['num_reflow_iterations']
     
     if num_reflow_iters > 1:
         print("\n" + "="*60)
-        print(f"ENTRENANDO ITERATIVE REFLOW (K={num_reflow_iters})")
+        print(f"TRAINING ITERATIVE REFLOW (K={num_reflow_iters})")
         print("="*60)
         
-        # Cargar datos para referencia (opcional)
+        # Load data for reference (optional)
         data_dir = Path(__file__).parent.parent / config['data']['data_dir']
         dataset = ImageDataset(str(data_dir), config['data']['image_size'])
         dataloader = DataLoader(dataset, batch_size=config['training_rectified']['batch_size'])
@@ -119,25 +119,25 @@ def main():
             save_dir=str(checkpoint_dir)
         )
         
-        print(f"\nCreados {len(models)} modelos rectificados iterativamente")
+        print(f"\nCreated {len(models)} iteratively rectified models")
     
-    print("\nEntrenamiento Reflow completado!")
-    print(f"Modelo guardado en: {checkpoint_dir / 'rectified_flow_k1_final.pt'}")
+    print("\nReflow training completed!")
+    print(f"Model saved to: {checkpoint_dir / 'rectified_flow_k1_final.pt'}")
     
-    # Comparar rectitud
-    print("\nComparando rectitud de trayectorias...")
+    # Compare straightness
+    print("\nComparing trajectory straightness...")
     x0_test = torch.randn(4, 3, config['data']['image_size'], 
                           config['data']['image_size']).to(device)
     
-    # Generar x1 con el modelo base
+    # Generate x1 with base model
     with torch.no_grad():
         x1_test = base_model.sample(noise=x0_test, num_steps=100)
     
     base_straightness = base_model.velocity_net.eval()
     rect_straightness = rect_model.compute_straightness(x0_test, x1_test)
     
-    print(f"Rectitud del modelo rectificado: {rect_straightness:.4f}")
-    print("(Menor valor = trayectorias más rectas)")
+    print(f"Rectified model straightness: {rect_straightness:.4f}")
+    print("(Lower value = straighter trajectories)")
 
 
 if __name__ == "__main__":

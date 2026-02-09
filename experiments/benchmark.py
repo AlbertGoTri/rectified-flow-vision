@@ -1,10 +1,10 @@
 """
-Script de benchmark para comparar modelo base vs modelo rectificado.
+Benchmark script to compare base model vs rectified model.
 
-Mide:
-- Velocidad de generación con diferentes números de pasos
-- Calidad de las imágenes generadas (si hay datos de referencia)
-- Trade-off velocidad vs calidad
+Measures:
+- Generation speed with different numbers of steps
+- Quality of generated images (if reference data available)
+- Speed vs quality trade-off
 """
 
 import torch
@@ -16,7 +16,7 @@ import time
 from tqdm import tqdm
 import pandas as pd
 
-# Añadir el directorio raíz al path
+# Add root directory to path
 sys.path.append(str(Path(__file__).parent.parent))
 
 from models import BaseFlowModel, RectifiedFlowModel
@@ -32,10 +32,10 @@ from experiments.train_base import load_config
 def benchmark_speed(model, num_samples: int, steps_list: list, 
                     image_size: int, device: str, num_runs: int = 3):
     """
-    Benchmark de velocidad para un modelo.
+    Speed benchmark for a model.
     
     Returns:
-        Lista de diccionarios con resultados por número de pasos
+        List of dictionaries with results per number of steps
     """
     model.eval()
     results = []
@@ -44,13 +44,13 @@ def benchmark_speed(model, num_samples: int, steps_list: list,
         times = []
         
         for run in range(num_runs):
-            # Warmup en la primera ejecución
+            # Warmup on first run
             if run == 0:
                 noise = torch.randn(1, 3, image_size, image_size, device=device)
                 with torch.no_grad():
                     _ = model.sample(noise=noise, num_steps=num_steps)
             
-            # Sincronizar GPU
+            # Synchronize GPU
             if device == 'cuda':
                 torch.cuda.synchronize()
             
@@ -86,7 +86,7 @@ def benchmark_speed(model, num_samples: int, steps_list: list,
 def benchmark_quality(model, reference_images: torch.Tensor, 
                       num_steps: int, device: str):
     """
-    Benchmark de calidad comparando con imágenes de referencia.
+    Quality benchmark comparing against reference images.
     """
     model.eval()
     metrics_calc = MetricsCalculator(device)
@@ -97,8 +97,8 @@ def benchmark_quality(model, reference_images: torch.Tensor,
         noise = torch.randn_like(reference_images)
         generated = model.sample(noise=noise, num_steps=num_steps)
     
-    # Calcular métricas
-    # Normalizar a [0, 255] para SSIM
+    # Calculate metrics
+    # Normalize to [0, 255] for SSIM
     ref_np = ((reference_images.cpu().numpy() + 1) / 2 * 255).astype(np.uint8)
     gen_np = ((generated.cpu().numpy() + 1) / 2 * 255).astype(np.uint8)
     
@@ -119,28 +119,28 @@ def benchmark_quality(model, reference_images: torch.Tensor,
 
 
 def main():
-    # Cargar configuración
+    # Load configuration
     config = load_config()
     
-    # Configurar dispositivo
+    # Configure device
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    print(f"Usando dispositivo: {device}")
+    print(f"Using device: {device}")
     
     # Paths
     checkpoint_dir = Path(__file__).parent.parent / config['paths']['checkpoints']
     results_dir = Path(__file__).parent.parent / config['paths']['results']
     results_dir.mkdir(parents=True, exist_ok=True)
     
-    # Parámetros del benchmark
+    # Benchmark parameters
     image_size = config['data']['image_size']
     num_samples = config['benchmark']['num_samples']
     steps_to_test = config['benchmark']['steps_to_test']
     num_runs = config['benchmark']['num_runs']
     
-    # Cargar modelos
-    print("Cargando modelos...")
+    # Load models
+    print("Loading models...")
     
-    # Modelo base
+    # Base model
     base_model = BaseFlowModel(
         image_size=image_size,
         model_channels=config['model']['channels'],
@@ -154,11 +154,11 @@ def main():
     base_model_path = checkpoint_dir / 'base_flow_final.pt'
     if base_model_path.exists():
         base_model.load(str(base_model_path))
-        print("Modelo base cargado desde checkpoint")
+        print("Base model loaded from checkpoint")
     else:
-        print("ADVERTENCIA: Usando modelo base sin entrenar")
+        print("WARNING: Using untrained base model")
     
-    # Modelo rectificado
+    # Rectified model
     rect_model = RectifiedFlowModel(
         image_size=image_size,
         model_channels=config['model']['channels'],
@@ -172,32 +172,32 @@ def main():
     rect_model_path = checkpoint_dir / 'rectified_flow_k1_final.pt'
     if rect_model_path.exists():
         rect_model.load(str(rect_model_path))
-        print("Modelo rectificado cargado desde checkpoint")
+        print("Rectified model loaded from checkpoint")
     else:
-        print("ADVERTENCIA: Usando modelo rectificado sin entrenar")
+        print("WARNING: Using untrained rectified model")
     
     # ========================================
-    # BENCHMARK DE VELOCIDAD
+    # SPEED BENCHMARK
     # ========================================
     print("\n" + "="*60)
-    print("BENCHMARK DE VELOCIDAD")
+    print("SPEED BENCHMARK")
     print("="*60)
-    print(f"Muestras: {num_samples}, Pasos: {steps_to_test}")
-    print(f"Runs por configuración: {num_runs}")
+    print(f"Samples: {num_samples}, Steps: {steps_to_test}")
+    print(f"Runs per configuration: {num_runs}")
     
-    print("\nBenchmark modelo BASE...")
+    print("\nBenchmarking BASE model...")
     base_results = benchmark_speed(
         base_model, num_samples, steps_to_test, image_size, device, num_runs
     )
     
-    print("Benchmark modelo RECTIFICADO...")
+    print("Benchmarking RECTIFIED model...")
     rect_results = benchmark_speed(
         rect_model, num_samples, steps_to_test, image_size, device, num_runs
     )
     
-    # Mostrar resultados
+    # Show results
     print("\n" + "-"*60)
-    print(f"{'Pasos':<10} {'Base (ms/img)':<18} {'Rect (ms/img)':<18} {'Speedup':<10}")
+    print(f"{'Steps':<10} {'Base (ms/img)':<18} {'Rect (ms/img)':<18} {'Speedup':<10}")
     print("-"*60)
     
     for base_r, rect_r in zip(base_results, rect_results):
@@ -208,44 +208,44 @@ def main():
         print(f"{steps:<10} {base_time:<18.2f} {rect_time:<18.2f} {speedup:<10.2f}x")
     
     # ========================================
-    # COMPARACIÓN CLAVE: POCOS PASOS
+    # KEY COMPARISON: FEW STEPS
     # ========================================
     print("\n" + "="*60)
-    print("COMPARACIÓN CLAVE: GENERACIÓN CON POCOS PASOS")
+    print("KEY COMPARISON: GENERATION WITH FEW STEPS")
     print("="*60)
     
     few_steps = [1, 2, 4, 8]
-    print("\nLa ventaja principal del Reflow es generar con MUY pocos pasos.")
-    print("Comparemos la calidad visual con 1-8 pasos:\n")
+    print("\nThe main advantage of Reflow is generating with VERY few steps.")
+    print("Let's compare visual quality with 1-8 steps:\n")
     
-    # Generar muestras con pocos pasos
+    # Generate samples with few steps
     noise_test = torch.randn(8, 3, image_size, image_size, device=device)
     
     for steps in few_steps:
-        print(f"Generando con {steps} paso(s)...")
+        print(f"Generating with {steps} step(s)...")
         
         with torch.no_grad():
             base_samples = base_model.sample(noise=noise_test.clone(), num_steps=steps)
             rect_samples = rect_model.sample(noise=noise_test.clone(), num_steps=steps)
         
-        # Guardar muestras
+        # Save samples
         plot_generated_samples(
             base_samples[:4], 
-            title=f"Modelo Base - {steps} pasos",
+            title=f"Base Model - {steps} steps",
             save_path=str(results_dir / f'base_samples_{steps}steps.png')
         )
         
         plot_generated_samples(
             rect_samples[:4],
-            title=f"Modelo Rectificado - {steps} pasos", 
+            title=f"Rectified Model - {steps} steps", 
             save_path=str(results_dir / f'rect_samples_{steps}steps.png')
         )
     
     # ========================================
-    # GUARDAR RESULTADOS
+    # SAVE RESULTS
     # ========================================
     print("\n" + "="*60)
-    print("GUARDANDO RESULTADOS")
+    print("SAVING RESULTS")
     print("="*60)
     
     # DataFrame con resultados
@@ -258,12 +258,12 @@ def main():
     })
     results_df['speedup'] = results_df['base_time_ms'] / results_df['rect_time_ms']
     
-    # Guardar CSV
+    # Save CSV
     csv_path = results_dir / 'benchmark_results.csv'
     results_df.to_csv(csv_path, index=False)
-    print(f"Resultados guardados en: {csv_path}")
+    print(f"Results saved to: {csv_path}")
     
-    # Generar gráficas
+    # Generate plots
     all_results = {
         'base_model': base_results,
         'rectified_model': rect_results
@@ -274,17 +274,17 @@ def main():
         save_path=str(results_dir / 'speed_comparison.png')
     )
     
-    # Reporte completo
+    # Complete report
     create_summary_report(all_results, str(results_dir))
     
     # ========================================
-    # CONCLUSIONES
+    # CONCLUSIONS
     # ========================================
     print("\n" + "="*60)
-    print("CONCLUSIONES")
+    print("CONCLUSIONS")
     print("="*60)
     
-    # Encontrar el punto óptimo
+    # Find optimal point
     optimal_rect_steps = None
     for rect_r in rect_results:
         if rect_r['num_steps'] <= 4:
@@ -292,7 +292,7 @@ def main():
             optimal_time = rect_r['time_per_image'] * 1000
             break
     
-    # Comparar con modelo base a 100 pasos
+    # Compare with base model at 100 steps
     base_100_time = None
     for base_r in base_results:
         if base_r['num_steps'] >= 64:
@@ -301,16 +301,16 @@ def main():
     
     if optimal_rect_steps and base_100_time:
         total_speedup = base_100_time / optimal_time
-        print(f"\n✓ El modelo RECTIFICADO con {optimal_rect_steps} pasos puede igualar")
-        print(f"  la calidad del modelo BASE con 64+ pasos.")
-        print(f"\n✓ Speedup total estimado: {total_speedup:.1f}x más rápido")
+        print(f"\n✓ The RECTIFIED model with {optimal_rect_steps} steps can match")
+        print(f"  the quality of the BASE model with 64+ steps.")
+        print(f"\n✓ Estimated total speedup: {total_speedup:.1f}x faster")
     
-    print("\n✓ La técnica de Reflow permite:")
-    print("  - Reducir dramáticamente los pasos de inferencia (100 → 1-4)")
-    print("  - Mantener calidad comparable de generación")
-    print("  - Ideal para aplicaciones en tiempo real")
+    print("\n✓ The Reflow technique allows:")
+    print("  - Dramatically reducing inference steps (100 → 1-4)")
+    print("  - Maintaining comparable generation quality")
+    print("  - Ideal for real-time applications")
     
-    print(f"\nTodos los resultados en: {results_dir}")
+    print(f"\nAll results in: {results_dir}")
 
 
 if __name__ == "__main__":

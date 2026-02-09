@@ -1,6 +1,6 @@
 """
-Métricas para evaluar la calidad de las imágenes generadas.
-Incluye FID, LPIPS, SSIM y métricas de velocidad.
+Metrics to evaluate the quality of generated images.
+Includes FID, LPIPS, SSIM and speed metrics.
 """
 
 import torch
@@ -15,7 +15,7 @@ from tqdm import tqdm
 
 
 class MetricsCalculator:
-    """Calculador de métricas para evaluación de modelos generativos."""
+    """Metrics calculator for generative model evaluation."""
     
     def __init__(self, device: str = 'cuda' if torch.cuda.is_available() else 'cpu'):
         self.device = device
@@ -24,44 +24,44 @@ class MetricsCalculator:
     
     @property
     def lpips_model(self):
-        """Carga lazy del modelo LPIPS."""
+        """Lazy loading of LPIPS model."""
         if self._lpips_model is None:
             try:
                 import lpips
                 self._lpips_model = lpips.LPIPS(net='alex').to(self.device)
                 self._lpips_model.eval()
             except ImportError:
-                print("LPIPS no disponible. Instalar con: pip install lpips")
+                print("LPIPS not available. Install with: pip install lpips")
                 return None
         return self._lpips_model
     
     def compute_ssim(self, img1: np.ndarray, img2: np.ndarray) -> float:
         """
-        Calcula SSIM entre dos imágenes.
+        Computes SSIM between two images.
         
         Args:
-            img1, img2: Imágenes como arrays numpy [H, W, C] en rango [0, 255]
+            img1, img2: Images as numpy arrays [H, W, C] in range [0, 255]
         
         Returns:
-            Valor SSIM (mayor es mejor, máximo 1.0)
+            SSIM value (higher is better, maximum 1.0)
         """
         if img1.shape != img2.shape:
-            raise ValueError("Las imágenes deben tener el mismo tamaño")
+            raise ValueError("Images must have the same size")
         
-        # Convertir a escala de grises si es necesario para SSIM
+        # Convert to grayscale if necessary for SSIM
         if len(img1.shape) == 3:
             return ssim(img1, img2, channel_axis=2, data_range=255)
         return ssim(img1, img2, data_range=255)
     
     def compute_lpips(self, img1: torch.Tensor, img2: torch.Tensor) -> float:
         """
-        Calcula LPIPS entre dos imágenes.
+        Computes LPIPS between two images.
         
         Args:
-            img1, img2: Tensores [B, C, H, W] en rango [-1, 1]
+            img1, img2: Tensors [B, C, H, W] in range [-1, 1]
         
         Returns:
-            Valor LPIPS (menor es mejor)
+            LPIPS value (lower is better)
         """
         if self.lpips_model is None:
             return float('nan')
@@ -72,17 +72,17 @@ class MetricsCalculator:
     
     def compute_fid_statistics(self, images: torch.Tensor) -> Tuple[np.ndarray, np.ndarray]:
         """
-        Calcula estadísticas (media y covarianza) para FID.
-        Usa una versión simplificada sin Inception para rapidez.
+        Computes statistics (mean and covariance) for FID.
+        Uses a simplified version without Inception for speed.
         
         Args:
             images: Tensor [N, C, H, W]
         
         Returns:
-            (mu, sigma): Media y covarianza de las features
+            (mu, sigma): Mean and covariance of features
         """
-        # Versión simplificada: usar features de las imágenes directamente
-        # En producción, usar Inception v3
+        # Simplified version: use image features directly
+        # In production, use Inception v3
         images_flat = images.view(images.size(0), -1).cpu().numpy()
         mu = np.mean(images_flat, axis=0)
         sigma = np.cov(images_flat, rowvar=False)
@@ -91,22 +91,22 @@ class MetricsCalculator:
     def compute_fid(self, real_images: torch.Tensor, 
                     generated_images: torch.Tensor) -> float:
         """
-        Calcula FID (Fréchet Inception Distance) simplificado.
+        Computes simplified FID (Fréchet Inception Distance).
         
         Args:
             real_images: Tensor [N, C, H, W]
             generated_images: Tensor [M, C, H, W]
         
         Returns:
-            Valor FID (menor es mejor)
+            FID value (lower is better)
         """
         mu1, sigma1 = self.compute_fid_statistics(real_images)
         mu2, sigma2 = self.compute_fid_statistics(generated_images)
         
-        # Calcular FID
+        # Compute FID
         diff = mu1 - mu2
         
-        # Producto de covarianzas
+        # Product of covariances
         covmean, _ = linalg.sqrtm(sigma1 @ sigma2, disp=False)
         
         if np.iscomplexobj(covmean):
@@ -123,18 +123,18 @@ class MetricsCalculator:
                                   num_runs: int = 5,
                                   image_size: int = 64) -> Dict[str, float]:
         """
-        Mide la velocidad de generación del modelo.
+        Measures the generation speed of the model.
         
         Args:
-            model: Modelo de generación
-            num_samples: Número de muestras a generar
-            num_steps: Número de pasos de integración
-            batch_size: Tamaño del batch
-            num_runs: Número de ejecuciones para promediar
-            image_size: Tamaño de las imágenes
+            model: Generation model
+            num_samples: Number of samples to generate
+            num_steps: Number of integration steps
+            batch_size: Batch size
+            num_runs: Number of runs to average
+            image_size: Image size
         
         Returns:
-            Diccionario con tiempos y estadísticas
+            Dictionary with times and statistics
         """
         model.eval()
         times = []

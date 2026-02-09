@@ -1,68 +1,68 @@
 # Flow Model Distillation - Rectified Flow Testing
 
-## Descripción
+## Description
 
-Este proyecto implementa y evalúa la técnica de **Rectified Flow (Reflow)**, que consiste en aplicar un flow model sobre otro ya entrenado para "enderezar" las trayectorias de generación, permitiendo:
+This project implements and evaluates the **Rectified Flow (Reflow)** technique, which consists of applying a flow model on top of another already trained model to "straighten" the generation trajectories, allowing:
 
-- **Menos pasos de inferencia** (de 100+ pasos a 1-4 pasos)
-- **Mayor velocidad de generación**
-- **Calidad comparable** al modelo original
+- **Fewer inference steps** (from 100+ steps to 1-4 steps)
+- **Faster generation speed**
+- **Comparable quality** to the original model
 
-## Estructura del Proyecto
+## Project Structure
 
 ```
 flow_distillation/
 ├── data/
-│   └── mock_images/          # Imágenes descargadas para testing
+│   └── mock_images/          # Downloaded images for testing
 ├── models/
-│   ├── base_flow.py          # Flow model base (teacher)
-│   ├── rectified_flow.py     # Flow model rectificado (student)
-│   └── unet.py               # Arquitectura UNet para el modelo
+│   ├── base_flow.py          # Base flow model (teacher)
+│   ├── rectified_flow.py     # Rectified flow model (student)
+│   └── unet.py               # UNet architecture for the model
 ├── utils/
-│   ├── download_data.py      # Script para descargar imágenes
+│   ├── download_data.py      # Script to download images
 │   ├── metrics.py            # FID, LPIPS, SSIM
-│   └── visualization.py      # Visualización de resultados
+│   └── visualization.py      # Results visualization
 ├── experiments/
-│   ├── train_base.py         # Entrenar modelo base
-│   ├── train_rectified.py    # Entrenar modelo rectificado
-│   └── benchmark.py          # Comparar velocidades
+│   ├── train_base.py         # Train base model
+│   ├── train_rectified.py    # Train rectified model
+│   └── benchmark.py          # Compare speeds
 ├── configs/
-│   └── config.yaml           # Configuración del experimento
-├── results/                  # Resultados guardados
+│   └── config.yaml           # Experiment configuration
+├── results/                  # Saved results
 ├── requirements.txt
-└── main.py                   # Script principal
+└── main.py                   # Main script
 ```
 
-## Instalación
+## Installation
 
 ```bash
 pip install -r requirements.txt
 ```
 
-## Uso Rápido
+## Quick Start
 
 ```bash
-# 1. Descargar datos de prueba
+# 1. Download test data
 python -m utils.download_data
 
-# 2. Ejecutar benchmark completo
+# 2. Run complete benchmark
 python main.py
 
-# 3. O ejecutar pasos individuales
+# 3. Or run individual steps
 python -m experiments.train_base
 python -m experiments.train_rectified
 python -m experiments.benchmark
 ```
 
-## Técnica: Rectified Flow
+## Technique: Rectified Flow
 
-La idea principal es:
+The main idea is:
 
-1. **Modelo Base**: Entrena un flow model estándar que aprende a transformar ruido → imagen
-2. **Reflow**: Usa el modelo base para generar pares (ruido, imagen) y entrena un nuevo modelo para ir directamente de uno a otro
-3. **Resultado**: Trayectorias más rectas = menos pasos necesarios
+1. **Base Model**: Train a standard flow model that learns to transform noise → image
+2. **Reflow**: Use the base model to generate (noise, image) pairs and train a new model to go directly from one to the other
+3. **Result**: Straighter trajectories = fewer steps needed
 
-## Referencias
+## References
 
 - [Flow Straight and Fast: Learning to Generate and Transfer Data with Rectified Flow](https://arxiv.org/abs/2209.03003)
 - [Consistency Models](https://arxiv.org/abs/2303.01469)

@@ -1,14 +1,14 @@
 """
-Implementación de Rectified Flow (Reflow).
+Rectified Flow (Reflow) implementation.
 
-La técnica de Reflow consiste en:
-1. Usar un modelo flow ya entrenado para generar pares (ruido, imagen)
-2. Entrenar un nuevo modelo para ir directamente del ruido a la imagen
-3. Las trayectorias resultantes son más "rectas", permitiendo menos pasos
+The Reflow technique consists of:
+1. Using an already trained flow model to generate (noise, image) pairs
+2. Training a new model to go directly from noise to image
+3. The resulting trajectories are "straighter", allowing fewer steps
 
-Esto se puede aplicar iterativamente (Reflow-K) para trayectorias aún más rectas.
+This can be applied iteratively (Reflow-K) for even straighter trajectories.
 
-Referencias:
+References:
 - Flow Straight and Fast: Learning to Generate and Transfer Data with Rectified Flow
   (Liu et al., 2022) https://arxiv.org/abs/2209.03003
 """
@@ -28,13 +28,13 @@ from .unet import UNet
 
 class RectifiedFlowModel(BaseFlowModel):
     """
-    Modelo Flow Rectificado (Reflow).
+    Rectified Flow Model (Reflow).
     
-    Hereda de BaseFlowModel pero se entrena de manera diferente:
-    - En lugar de pares (ruido aleatorio, datos reales)
-    - Usa pares (ruido, imagen_generada_por_teacher)
+    Inherits from BaseFlowModel but is trained differently:
+    - Instead of pairs (random noise, real data)
+    - Uses pairs (noise, image_generated_by_teacher)
     
-    Esto "endereza" las trayectorias, permitiendo generación más rápida.
+    This "straightens" the trajectories, allowing faster generation.
     """
     
     def __init__(
@@ -48,7 +48,7 @@ class RectifiedFlowModel(BaseFlowModel):
         dropout: float = 0.1,
         device: str = 'cuda' if torch.cuda.is_available() else 'cpu'
     ):
-        # Llamar al constructor padre
+        # Call parent constructor
         super().__init__(
             image_size=image_size,
             in_channels=in_channels,
@@ -65,8 +65,8 @@ class RectifiedFlowModel(BaseFlowModel):
     @staticmethod
     def from_base_model(base_model: BaseFlowModel) -> 'RectifiedFlowModel':
         """
-        Crea un RectifiedFlowModel con la misma arquitectura que el modelo base.
-        Opcionalmente puede copiar los pesos como inicialización.
+        Creates a RectifiedFlowModel with the same architecture as the base model.
+        Optionally can copy weights as initialization.
         """
         rect_model = RectifiedFlowModel(
             image_size=base_model.image_size,
@@ -74,7 +74,7 @@ class RectifiedFlowModel(BaseFlowModel):
             device=base_model.device
         )
         
-        # Opcionalmente inicializar con pesos del modelo base
+        # Optionally initialize with base model weights
         # rect_model.load_state_dict(base_model.state_dict())
         
         return rect_model
@@ -82,21 +82,21 @@ class RectifiedFlowModel(BaseFlowModel):
     def compute_straightness(self, x0: torch.Tensor, x1: torch.Tensor, 
                              num_points: int = 10) -> float:
         """
-        Calcula qué tan "recta" es la trayectoria aprendida.
+        Computes how "straight" the learned trajectory is.
         
-        Una trayectoria perfectamente recta tendría straightness = 0.
+        A perfectly straight trajectory would have straightness = 0.
         
         Args:
-            x0: Punto inicial (ruido)
-            x1: Punto final (imagen)
-            num_points: Número de puntos para evaluar
+            x0: Initial point (noise)
+            x1: Final point (image)
+            num_points: Number of points to evaluate
         
         Returns:
-            Métrica de rectitud (menor es más recto)
+            Straightness metric (lower is straighter)
         """
         self.eval()
         
-        # Trayectoria ideal (línea recta)
+        # Ideal trajectory (straight line)
         ideal_direction = x1 - x0
         
         deviations = []
@@ -108,17 +108,17 @@ class RectifiedFlowModel(BaseFlowModel):
             for i in range(num_points):
                 t = torch.ones(x.shape[0], device=self.device) * (i * dt)
                 
-                # Velocidad predicha
+                # Predicted velocity
                 v_pred = self.forward(x, t)
                 
-                # Velocidad ideal (dirección constante)
+                # Ideal velocity (constant direction)
                 v_ideal = ideal_direction
                 
-                # Desviación
+                # Deviation
                 deviation = F.mse_loss(v_pred, v_ideal).item()
                 deviations.append(deviation)
                 
-                # Actualizar posición
+                # Update position
                 x = x + v_pred * dt
         
         return np.mean(deviations)
@@ -131,16 +131,16 @@ def generate_reflow_pairs(
     num_steps: int = 100
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     """
-    Genera pares (ruido, imagen_generada) usando el modelo teacher.
+    Generates (noise, generated_image) pairs using the teacher model.
     
     Args:
-        teacher_model: Modelo flow entrenado
-        num_pairs: Número de pares a generar
-        batch_size: Tamaño del batch para generación
-        num_steps: Pasos de integración para el teacher
+        teacher_model: Trained flow model
+        num_pairs: Number of pairs to generate
+        batch_size: Batch size for generation
+        num_steps: Integration steps for the teacher
     
     Returns:
-        (x0_all, x1_all): Tensores con todos los pares
+        (x0_all, x1_all): Tensors with all pairs
     """
     teacher_model.eval()
     
@@ -149,18 +149,18 @@ def generate_reflow_pairs(
     
     num_batches = (num_pairs + batch_size - 1) // batch_size
     
-    print(f"Generando {num_pairs} pares para Reflow...")
+    print(f"Generating {num_pairs} pairs for Reflow...")
     
     with torch.no_grad():
-        for _ in tqdm(range(num_batches), desc="Generando pares"):
+        for _ in tqdm(range(num_batches), desc="Generating pairs"):
             current_batch = min(batch_size, num_pairs - len(x0_list) * batch_size)
             
-            # Generar ruido
+            # Generate noise
             x0 = torch.randn(current_batch, teacher_model.in_channels,
                             teacher_model.image_size, teacher_model.image_size,
                             device=teacher_model.device)
             
-            # Generar imagen correspondiente con el teacher
+            # Generate corresponding image with the teacher
             x1 = teacher_model.sample(noise=x0, num_steps=num_steps)
             
             x0_list.append(x0.cpu())
@@ -169,7 +169,7 @@ def generate_reflow_pairs(
     x0_all = torch.cat(x0_list, dim=0)[:num_pairs]
     x1_all = torch.cat(x1_list, dim=0)[:num_pairs]
     
-    print(f"Generados {x0_all.shape[0]} pares")
+    print(f"Generated {x0_all.shape[0]} pairs")
     
     return x0_all, x1_all
 
@@ -185,22 +185,22 @@ def train_rectified_flow(
     save_every: int = 10
 ) -> List[float]:
     """
-    Entrena el modelo rectificado usando pares pre-generados.
+    Trains the rectified model using pre-generated pairs.
     
     Args:
-        model: Modelo rectificado a entrenar
-        x0_data: Tensor con ruidos [N, C, H, W]
-        x1_data: Tensor con imágenes generadas [N, C, H, W]
-        epochs: Número de epochs
-        batch_size: Tamaño del batch
+        model: Rectified model to train
+        x0_data: Tensor with noise [N, C, H, W]
+        x1_data: Tensor with generated images [N, C, H, W]
+        epochs: Number of epochs
+        batch_size: Batch size
         lr: Learning rate
-        save_path: Path para guardar checkpoints
-        save_every: Guardar cada N epochs
+        save_path: Path to save checkpoints
+        save_every: Save every N epochs
     
     Returns:
-        Lista de losses por epoch
+        List of losses per epoch
     """
-    # Crear dataset y dataloader
+    # Create dataset and dataloader
     dataset = TensorDataset(x0_data, x1_data)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
     
@@ -218,13 +218,13 @@ def train_rectified_flow(
             x0 = x0.to(model.device)
             x1 = x1.to(model.device)
             
-            # Muestrear tiempo
+            # Sample time
             t = torch.rand(x0.shape[0], device=model.device)
             
-            # Interpolación y target
+            # Interpolation and target
             x_t, target = model.get_interpolation(x0, x1, t)
             
-            # Predecir velocidad
+            # Predict velocity
             pred = model.forward(x_t, t)
             
             # Loss
@@ -244,7 +244,7 @@ def train_rectified_flow(
         losses.append(avg_loss)
         print(f"Reflow Epoch {epoch+1}/{epochs} - Loss: {avg_loss:.4f}")
         
-        # Guardar checkpoint
+        # Save checkpoint
         if save_path and (epoch + 1) % save_every == 0:
             model.save(f"{save_path}_epoch{epoch+1}.pt")
     
