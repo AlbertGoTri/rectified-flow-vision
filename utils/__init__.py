@@ -1,5 +1,5 @@
 """
-Utilidades para el proyecto de Flow Distillation.
+Utilities for the Flow Distillation project.
 """
 
 from .metrics import MetricsCalculator, benchmark_models
@@ -11,6 +11,7 @@ from .visualization import (
     create_summary_report
 )
 from .download_data import download_data
+from .logging_config import setup_logger, get_logger, logger
 
 __all__ = [
     'MetricsCalculator',
@@ -20,5 +21,8 @@ __all__ = [
     'plot_generated_samples',
     'plot_trajectory_comparison',
     'create_summary_report',
-    'download_data'
+    'download_data',
+    'setup_logger',
+    'get_logger',
+    'logger'
 ]

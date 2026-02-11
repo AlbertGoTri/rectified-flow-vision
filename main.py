@@ -24,16 +24,32 @@ import torch
 # Add current directory to path
 sys.path.insert(0, str(Path(__file__).parent))
 
+from utils.logging_config import setup_logger
 
-def load_config():
-    """Load configuration."""
+# Initialize logger
+logger = setup_logger("flow_vision", log_file="logs/flow_vision.log")
+
+
+def load_config() -> dict:
+    """Load configuration from YAML file.
+    
+    Returns:
+        dict: Configuration dictionary
+    """
     config_path = Path(__file__).parent / 'configs' / 'config.yaml'
     with open(config_path, 'r') as f:
         return yaml.safe_load(f)
 
 
-def update_config_for_quick_mode(config):
-    """Modify configuration for quick/demo mode."""
+def update_config_for_quick_mode(config: dict) -> dict:
+    """Modify configuration for quick/demo mode.
+    
+    Args:
+        config: Original configuration dictionary
+    
+    Returns:
+        dict: Modified configuration for quick mode
+    """
     config['data']['num_mock_images'] = 50
     config['training_base']['epochs'] = 5
     config['training_base']['batch_size'] = 8
@@ -45,13 +61,18 @@ def update_config_for_quick_mode(config):
     return config
 
 
-def save_config(config, path):
-    """Save modified configuration."""
+def save_config(config: dict, path: Path) -> None:
+    """Save configuration to YAML file.
+    
+    Args:
+        config: Configuration dictionary
+        path: Path to save the configuration
+    """
     with open(path, 'w') as f:
         yaml.dump(config, f, default_flow_style=False)
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description='Flow Distillation - Pipeline Completo')
     parser.add_argument('--skip-training', action='store_true',
                         help='Skip training and only run benchmark')
@@ -64,24 +85,22 @@ def main():
     args = parser.parse_args()
     
     # Banner
-    print("="*60)
-    print("   FLOW DISTILLATION - Rectified Flow Testing")
-    print("="*60)
-    print()
+    logger.info("=" * 60)
+    logger.info("   FLOW DISTILLATION - Rectified Flow Testing")
+    logger.info("=" * 60)
     
     # Configuration
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    print(f"Device: {device}")
+    logger.info(f"Device: {device}")
     if device == 'cuda':
-        print(f"GPU: {torch.cuda.get_device_name(0)}")
-        print(f"GPU Memory: {torch.cuda.get_device_properties(0).total_memory / 1e9:.1f} GB")
-    print()
+        logger.info(f"GPU: {torch.cuda.get_device_name(0)}")
+        logger.info(f"GPU Memory: {torch.cuda.get_device_properties(0).total_memory / 1e9:.1f} GB")
     
     # Load and possibly modify configuration
     config = load_config()
     
     if args.quick:
-        print("⚡ QUICK MODE activated - Reduced configuration for demo\n")
+        logger.info("QUICK MODE activated - Reduced configuration for demo")
         config = update_config_for_quick_mode(config)
         # Save temporary config
         temp_config_path = Path(__file__).parent / 'configs' / 'config_quick.yaml'
@@ -91,43 +110,40 @@ def main():
     # STEP 1: DOWNLOAD/GENERATE DATA
     # ========================================
     if not args.skip_download:
-        print("="*60)
-        print("STEP 1: Preparing test data")
-        print("="*60)
+        logger.info("=" * 60)
+        logger.info("STEP 1: Preparing test data")
+        logger.info("=" * 60)
         
         from utils.download_data import download_data
         download_data(use_online=not args.offline)
-        print()
     
     # ========================================
     # STEP 2: TRAIN BASE MODEL
     # ========================================
     if not args.skip_training:
-        print("="*60)
-        print("STEP 2: Training base Flow model")
-        print("="*60)
+        logger.info("=" * 60)
+        logger.info("STEP 2: Training base Flow model")
+        logger.info("=" * 60)
         
         from experiments.train_base import main as train_base_main
         train_base_main()
-        print()
         
         # ========================================
         # STEP 3: TRAIN RECTIFIED MODEL
         # ========================================
-        print("="*60)
-        print("STEP 3: Training rectified Flow model (Reflow)")
-        print("="*60)
+        logger.info("=" * 60)
+        logger.info("STEP 3: Training rectified Flow model (Reflow)")
+        logger.info("=" * 60)
         
         from experiments.train_rectified import main as train_rect_main
         train_rect_main()
-        print()
     
     # ========================================
     # STEP 4: COMPARATIVE BENCHMARK
     # ========================================
-    print("="*60)
-    print("STEP 4: Running comparative benchmark")
-    print("="*60)
+    logger.info("=" * 60)
+    logger.info("STEP 4: Running comparative benchmark")
+    logger.info("=" * 60)
     
     from experiments.benchmark import main as benchmark_main
     benchmark_main()
@@ -135,14 +151,14 @@ def main():
     # ========================================
     # FINAL SUMMARY
     # ========================================
-    print("\n" + "="*60)
-    print("   PIPELINE COMPLETED")
-    print("="*60)
+    logger.info("=" * 60)
+    logger.info("   PIPELINE COMPLETED")
+    logger.info("=" * 60)
     
     results_dir = Path(__file__).parent / config['paths']['results']
     checkpoint_dir = Path(__file__).parent / config['paths']['checkpoints']
     
-    print(f"""
+    logger.info(f"""
 Generated files:
 
 📁 Checkpoints:
@@ -164,7 +180,7 @@ Generated files:
    4. Try with your own data in data/mock_images/
 """)
     
-    print("Experiment completed successfully!")
+    logger.info("Experiment completed successfully!")
 
 
 if __name__ == "__main__":
